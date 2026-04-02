@@ -1,0 +1,13 @@
+# Linux override: iptables on the host enforces egress allowlist.
+# agent-net is internal (no external routing). The DOCKER-USER iptables
+# rules in iptables-setup.sh allow only api.anthropic.com outbound.
+
+# Remove version line too
+services:
+  agent:
+    networks:
+      - agent-net
+
+networks:
+  agent-net:
+    driver: bridge

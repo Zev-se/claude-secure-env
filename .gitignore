@@ -1,0 +1,9 @@
+# Your project code — cloned repos go in src/ (or whatever you name it).
+# The sandbox repo should not track your project's source.
+src/
+
+# Local environment config — contains API keys or credential paths.
+.env
+
+# Auto-generated on every ./start.sh start — not useful to track.
+.docker-compose.mounts.yml

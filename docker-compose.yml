@@ -1,0 +1,27 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        HOST_UID: ${HOST_UID:-1000}
+    command: ["sleep", "infinity"]
+    environment:
+     # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_CONFIG_DIR=${CLAUDE_CONFIG_DIR:-/home/agent/.claude}
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: "2.0"
+          pids: 256
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+      - /run
+      - /var/tmp:mode=1777
+      - /home/agent:mode=0755,uid=${HOST_UID:-1000}
+    security_opt:
+      - seccomp:seccomp-profile.json
+    stdin_open: true
+    tty: true

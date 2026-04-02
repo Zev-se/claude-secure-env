@@ -1,0 +1,53 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "syscalls": [
+    {
+      "comment": "Block container escape and privilege escalation syscalls",
+      "names": [
+        "ptrace",
+        "mount",
+        "umount2",
+        "unshare",
+        "pivot_root",
+        "reboot",
+        "swapon",
+        "swapoff",
+        "init_module",
+        "finit_module",
+        "delete_module",
+        "kexec_load",
+        "kexec_file_load",
+        "keyctl",
+        "add_key",
+        "request_key",
+        "bpf",
+        "userfaultfd",
+        "perf_event_open",
+        "lookup_dcookie",
+        "kcmp",
+        "process_vm_readv",
+        "process_vm_writev",
+        "move_pages",
+        "acct",
+        "nfsservctl",
+        "personality",
+        "create_module",
+        "get_kernel_syms",
+        "query_module",
+        "syslog",
+        "vm86",
+        "vm86old",
+        "settimeofday",
+        "clock_settime",
+        "open_by_handle_at",
+        "setns",
+        "clone3",
+        "capset",
+        "sethostname",
+        "setdomainname"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

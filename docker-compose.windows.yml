@@ -1,0 +1,28 @@
+version: "3.9"
+
+# Windows override: Squid proxy enforces egress allowlist.
+# agent container has no external network route — all traffic goes via proxy.
+# proxy container has both agent-net and default bridge for internet access.
+
+services:
+  agent:
+    networks:
+      - agent-net
+    depends_on:
+      - proxy
+
+  proxy:
+    image: ubuntu/squid:latest
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+    networks:
+      - agent-net
+      - proxy-external
+    restart: unless-stopped
+
+networks:
+  agent-net:
+    driver: bridge
+    internal: true
+  proxy-external:
+    driver: bridge
