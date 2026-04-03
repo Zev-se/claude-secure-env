@@ -80,6 +80,8 @@ fi
 # ── Per-project container naming ──────────────────────────────────────────────
 # Derive a unique project name from the first RW mount so that different
 # project directories get separate containers, networks, and iptables rules.
+# Uses the last two path components (parent + basename) to avoid collisions
+# when multiple projects mount identically-named subdirectories like "src".
 derive_project_name() {
   if [[ -n "${AGENT_MOUNTS_RW:-}" ]]; then
     local first_mount
@@ -88,8 +90,10 @@ derive_project_name() {
     first_mount="${first_mount/#\~/$REAL_HOME}"
     # Resolve to absolute path
     first_mount="$(cd "$first_mount" 2>/dev/null && pwd || echo "$first_mount")"
-    local name
-    name=$(basename "$first_mount")
+    local leaf parent name
+    leaf=$(basename "$first_mount")
+    parent=$(basename "$(dirname "$first_mount")")
+    name="${parent}-${leaf}"
     # Sanitise for docker compose: lowercase, alphanumeric and hyphens only
     name=$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
     echo "claude-${name}"
