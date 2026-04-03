@@ -41,8 +41,6 @@
         "clock_settime",
         "open_by_handle_at",
         "setns",
-        "clone3",
-        "capset",
         "sethostname",
         "setdomainname"
       ],
