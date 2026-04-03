@@ -1,6 +1,8 @@
 # Your project code — cloned repos go in src/ (or whatever you name it).
 # The sandbox repo should not track your project's source.
 src/**
+# But do not ignore the .gitkeep file within src
+!src/.gitkeep
 
 # Local environment config — contains API keys or credential paths.
 .env
