@@ -80,8 +80,6 @@ fi
 # ── Per-project container naming ──────────────────────────────────────────────
 # Derive a unique project name from the first RW mount so that different
 # project directories get separate containers, networks, and iptables rules.
-# Uses the last two path components (parent + basename) to avoid collisions
-# when multiple projects mount identically-named subdirectories like "src".
 derive_project_name() {
   if [[ -n "${AGENT_MOUNTS_RW:-}" ]]; then
     local first_mount
@@ -90,10 +88,8 @@ derive_project_name() {
     first_mount="${first_mount/#\~/$REAL_HOME}"
     # Resolve to absolute path
     first_mount="$(cd "$first_mount" 2>/dev/null && pwd || echo "$first_mount")"
-    local leaf parent name
-    leaf=$(basename "$first_mount")
-    parent=$(basename "$(dirname "$first_mount")")
-    name="${parent}-${leaf}"
+    local name
+    name=$(basename "$first_mount")
     # Sanitise for docker compose: lowercase, alphanumeric and hyphens only
     name=$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
     echo "claude-${name}"
@@ -178,8 +174,31 @@ validate_mounts() {
 # ── Generate dynamic volume override ──────────────────────────────────────────
 MOUNTS_OVERRIDE="$SCRIPT_DIR/.docker-compose.mounts.yml"
 
+# ── Ensure persistent .claude directory exists on the host ───────────────────
+# This directory is bind-mounted over /home/agent/.claude inside the container
+# so that memory, settings, and (in subscription mode) credentials survive
+# container restarts.  The tmpfs on /home/agent remains for everything else.
+ensure_claude_dir() {
+  mkdir -p "$SCRIPT_DIR/.claude"
+
+  # Subscription mode: bootstrap credentials into the project .claude dir the
+  # first time, so the container can authenticate without browser access.
+  if [[ -z "${ANTHROPIC_API_KEY:-}" && \
+        -f "$REAL_HOME/.claude/.credentials.json" && \
+        ! -f "$SCRIPT_DIR/.claude/.credentials.json" ]]; then
+    cp "$REAL_HOME/.claude/.credentials.json" "$SCRIPT_DIR/.claude/.credentials.json"
+    chmod 600 "$SCRIPT_DIR/.claude/.credentials.json"
+    echo "Copied subscription credentials to .claude/ for container use."
+  fi
+}
+
 generate_mounts_override() {
   local volumes=()
+
+  # Always persist the Claude config / memory directory.
+  # This bind mount overlays the /home/agent tmpfs for this one subdirectory,
+  # keeping memory and settings across container restarts.
+  volumes+=("      - \"${SCRIPT_DIR}/.claude:/home/agent/.claude:rw\"")
 
   if [[ -n "${AGENT_MOUNTS_RW:-}" ]]; then
     IFS=':' read -ra RW_PATHS <<< "$AGENT_MOUNTS_RW"
@@ -205,11 +224,7 @@ generate_mounts_override() {
     done
   fi
 
-  if [[ ${#volumes[@]} -eq 0 ]]; then
-    # No mounts — remove override file if it exists
-    rm -f "$MOUNTS_OVERRIDE"
-    return
-  fi
+  # volumes always has at least the .claude entry, so the override is always written.
 
   cat > "$MOUNTS_OVERRIDE" <<EOF
 services:
@@ -251,6 +266,7 @@ cmd_start() {
   [[ "${1:-}" == "--think" ]] && think_flag="--think"
 
   validate_mounts
+  ensure_claude_dir
   generate_mounts_override
 
   if is_running; then
