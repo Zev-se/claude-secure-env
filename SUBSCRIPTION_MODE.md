@@ -5,12 +5,15 @@ This guide covers running Claude Code in the Docker sandbox using your Claude Pr
 ## How It Works
 
 Claude Code stores OAuth credentials in `~/.claude/.credentials.json`.  The sandbox
-automatically creates a persistent `.claude/` directory next to `start.sh` and
-bind-mounts it into the container at `/home/agent/.claude`.
+automatically creates a persistent `src/.claude/` directory and bind-mounts it into
+the container at `/home/agent/.claude`.
 
 On the **first start in subscription mode** the script copies your host credentials
-into `.claude/` so the container can authenticate.  After that the directory persists
-across container restarts, keeping credentials, agent memory, and settings intact.
+into `src/.claude/` so the container can authenticate.  After that the directory
+persists across container restarts, keeping credentials, agent memory, and settings
+intact.  Because `src/.claude/` lives inside your project's `src/` git repo, agent
+memory and settings are versioned alongside your code — only the credentials file
+should be excluded from commits (see `.gitignore` in `src/`).
 
 ## One-Time Setup: Authenticate on the Host
 
@@ -55,16 +58,20 @@ The script handles credential bootstrapping automatically.
 
 ## What Gets Persisted
 
-The `.claude/` directory next to `start.sh` is bind-mounted into the container
-and survives container restarts.  It contains:
+`src/.claude/` is bind-mounted into the container and survives container restarts.
+It contains:
 
 | Path | Contents |
 |------|----------|
-| `.claude/.credentials.json` | OAuth token (copied from host on first start) |
-| `.claude/settings.json` | Claude Code settings |
-| `.claude/projects/` | Agent memory written during sessions |
+| `src/.claude/.credentials.json` | OAuth token (copied from host on first start) |
+| `src/.claude/settings.json` | Claude Code settings |
+| `src/.claude/projects/` | Agent memory written during sessions |
 
-This directory is listed in `.gitignore` — never commit it.
+`src/` is your project's git repo — commit memory and settings, but exclude
+credentials.  Add this to `src/.gitignore`:
+```
+.claude/.credentials.json
+```
 
 ## Switching Between API and Subscription Mode
 
@@ -102,8 +109,8 @@ OAuth tokens expire periodically.  To refresh:
 1. On your **host**, run `claude` (or `claude /login` if it prompts you)
 2. Copy the refreshed credentials into the project directory:
    ```bash
-   cp ~/.claude/.credentials.json <sandbox-dir>/.claude/.credentials.json
-   chmod 600 <sandbox-dir>/.claude/.credentials.json
+   cp ~/.claude/.credentials.json <sandbox-dir>/src/.claude/.credentials.json
+   chmod 600 <sandbox-dir>/src/.claude/.credentials.json
    ```
 3. Restart the container: `./start.sh stop && ./start.sh start`
 
@@ -124,10 +131,10 @@ the read-only limitation that prevented memory from being written.
 
 ## Security Notes
 
-- `.claude/` is listed in `.gitignore` — never commit it
+- `src/.claude/.credentials.json` must be in `src/.gitignore` — never commit it
 - The OAuth token grants access to your Claude subscription — treat it like a password
 - If you suspect the token was exposed, run `claude /logout` on your host to revoke it,
-  then `claude /login` to get a fresh one and copy it into `.claude/`
+  then `claude /login` to get a fresh one and copy it into `src/.claude/`
 
 ## Rate Limits
 

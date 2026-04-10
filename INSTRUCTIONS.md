@@ -14,11 +14,47 @@ Ensure the following are installed before proceeding:
 
 ## 1. First-Time Setup
 
-### Clone the repo and enter the directory
+### Clone the sandbox template
 ```bash
-git clone <repo-url> claude-sandbox
-cd claude-sandbox
+git clone <repo-url> my-project
+cd my-project
 ```
+
+### Initialise your project directory
+
+`src/` is where your work lives — source code, context, agent memory.
+It is a separate git repo from this sandbox template, pointing at your own private remote.
+
+```bash
+# Create the project structure
+mkdir -p src/context
+mkdir -p src/.claude
+
+# Copy starter templates
+cp context/CLAUDE.md src/CLAUDE.md
+cp context/TASKS.md  src/TASKS.md
+
+# Create src/.gitignore — exclude credentials, keep everything else
+cat > src/.gitignore << 'EOF'
+.claude/.credentials.json
+EOF
+
+# Initialise the project repo and point it at your private remote
+cd src
+git init
+git remote add origin git@your-gitea:you/my-project.git
+git add .
+git commit -m "Initial project scaffold"
+git push -u origin main
+cd ..
+```
+
+Edit `src/CLAUDE.md` and `src/TASKS.md` to reflect your actual project before the first session.
+
+> **Nested repos:** `src/` is listed in this template's `.gitignore`, so the outer
+> repo (this sandbox) never sees or touches `src/.git`.  The two repos are fully
+> independent — `git pull` in the project root gets template updates; `git push`
+> inside `src/` backs up your work.
 
 ### Create your `.env` file
 ```bash
@@ -40,16 +76,14 @@ Open `.env` and fill in the required values:
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
 HOST_UID=1000
-AGENT_MOUNTS_RW=~/code/my-project/src
+AGENT_MOUNTS_RW=~/my-project/src
 ```
 
 *Subscription mode (Pro/Max — no per-token charges):*
 ```env
 # ANTHROPIC_API_KEY is intentionally absent
 HOST_UID=1000
-CLAUDE_CONFIG_DIR=/workspace/.claude
-AGENT_MOUNTS_RO=~/.claude
-AGENT_MOUNTS_RW=~/code/my-project/src
+AGENT_MOUNTS_RW=~/my-project/src
 ```
 
 See `SUBSCRIPTION_MODE.md` for full subscription setup instructions. If both are present, the API key takes precedence and you will be billed per token.
@@ -58,14 +92,6 @@ See `SUBSCRIPTION_MODE.md` for full subscription setup instructions. If both are
 ```bash
 chmod +x start.sh iptables-setup.sh
 ```
-
-### Copy project templates into your project
-```bash
-cp context/CLAUDE.md ~/code/my-project/CLAUDE.md
-cp context/TASKS.md  ~/code/my-project/TASKS.md
-```
-
-Edit both files to reflect your actual project before the first agent session.
 
 ---
 
@@ -146,9 +172,10 @@ These checks prevent accidentally granting the agent overly broad access.
 
 ## 4. CLAUDE.md and TASKS.md
 
-Every project the agent works on should have these two files at its root.
+These files live in `src/` — inside your project repo, versioned on your private remote.
+Inside the container they are at `/workspace/src/CLAUDE.md` and `/workspace/src/TASKS.md`.
 
-### `CLAUDE.md` — Project memory
+### `src/CLAUDE.md` — Project memory
 Tells the agent what the project is, how it's structured, what conventions to follow, and what approaches have already failed. Fill this in accurately — it directly affects the quality of the agent's output.
 
 Key sections to keep current:
@@ -156,14 +183,21 @@ Key sections to keep current:
 - **Failed Approaches** — add entries whenever something doesn't work out
 - **Conventions** — be specific; vague instructions get ignored
 
-### `TASKS.md` — Work queue
+### `src/TASKS.md` — Work queue
 Tracks what's in progress, what's next, and what's blocked. The agent reads this at the start of every session and proposes updates at the end.
 
+### `src/context/` — Session history and decisions
+Use this directory for session notes, decision logs, and anything you want to be able to look back on. This is the long-term record of why things are the way they are.
+
+### `src/.claude/` — Agent memory and settings
+Claude Code writes persistent memory here between sessions. Versioned in your project repo so memory survives across machines and time. Credentials are excluded via `src/.gitignore`.
+
 **Workflow per session:**
-1. Open `TASKS.md` and confirm the current task is still accurate
+1. Open `src/TASKS.md` and confirm the current task is still accurate
 2. Start the sandbox: `./start.sh start`
 3. Let the agent work
 4. At session end, review the agent's proposed diffs to `CLAUDE.md` and `TASKS.md` before accepting them
+5. Commit and push from `src/`: `cd src && git add -A && git commit -m "..." && git push`
 
 ---
 

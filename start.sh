@@ -89,7 +89,7 @@ derive_project_name() {
     # Resolve to absolute path
     first_mount="$(cd "$first_mount" 2>/dev/null && pwd || echo "$first_mount")"
     local name
-    name=$(basename "$first_mount")
+    name=$(basename "$(dirname "$first_mount")")
     # Sanitise for docker compose: lowercase, alphanumeric and hyphens only
     name=$(echo "$name" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
     echo "claude-${name}"
@@ -174,31 +174,31 @@ validate_mounts() {
 # ── Generate dynamic volume override ──────────────────────────────────────────
 MOUNTS_OVERRIDE="$SCRIPT_DIR/.docker-compose.mounts.yml"
 
-# ── Ensure persistent .claude directory exists on the host ───────────────────
-# This directory is bind-mounted over /home/agent/.claude inside the container
-# so that memory, settings, and (in subscription mode) credentials survive
-# container restarts.  The tmpfs on /home/agent remains for everything else.
+# ── Ensure persistent .claude directory exists in src/ ───────────────────────
+# src/.claude is bind-mounted over /home/agent/.claude inside the container so
+# that memory, settings, and (in subscription mode) credentials survive restarts.
+# It lives inside src/ so it is versioned alongside project code — exclude only
+# .credentials.json from commits via src/.gitignore.
 ensure_claude_dir() {
-  mkdir -p "$SCRIPT_DIR/.claude"
+  mkdir -p "$SCRIPT_DIR/src/.claude"
 
-  # Subscription mode: bootstrap credentials into the project .claude dir the
-  # first time, so the container can authenticate without browser access.
+  # Subscription mode: bootstrap credentials into src/.claude/ the first time,
+  # so the container can authenticate without browser access.
   if [[ -z "${ANTHROPIC_API_KEY:-}" && \
         -f "$REAL_HOME/.claude/.credentials.json" && \
-        ! -f "$SCRIPT_DIR/.claude/.credentials.json" ]]; then
-    cp "$REAL_HOME/.claude/.credentials.json" "$SCRIPT_DIR/.claude/.credentials.json"
-    chmod 600 "$SCRIPT_DIR/.claude/.credentials.json"
-    echo "Copied subscription credentials to .claude/ for container use."
+        ! -f "$SCRIPT_DIR/src/.claude/.credentials.json" ]]; then
+    cp "$REAL_HOME/.claude/.credentials.json" "$SCRIPT_DIR/src/.claude/.credentials.json"
+    chmod 600 "$SCRIPT_DIR/src/.claude/.credentials.json"
+    echo "Copied subscription credentials to src/.claude/ for container use."
   fi
 }
 
 generate_mounts_override() {
   local volumes=()
 
-  # Always persist the Claude config / memory directory.
-  # This bind mount overlays the /home/agent tmpfs for this one subdirectory,
-  # keeping memory and settings across container restarts.
-  volumes+=("      - \"${SCRIPT_DIR}/.claude:/home/agent/.claude:rw\"")
+  # Always persist src/.claude — bind-mounted over /home/agent/.claude so that
+  # agent memory and settings survive container restarts and are versioned in src/.
+  volumes+=("      - \"${SCRIPT_DIR}/src/.claude:/home/agent/.claude:rw\"")
 
   if [[ -n "${AGENT_MOUNTS_RW:-}" ]]; then
     IFS=':' read -ra RW_PATHS <<< "$AGENT_MOUNTS_RW"
